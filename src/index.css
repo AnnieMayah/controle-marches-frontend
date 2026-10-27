@@ -1,0 +1,3 @@
+/* Remplace le index.css par défaut de Vite (qui centre et limite la largeur de #root) */
+html, body { margin: 0; padding: 0; }
+#root { width: 100%; max-width: none; margin: 0; padding: 0; border: none; text-align: left; }
