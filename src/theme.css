@@ -126,7 +126,8 @@ svg { flex-shrink: 0; }
 .notif-liste { max-height: 360px; overflow-y: auto; width: 340px; }
 .notif-point { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
 
-.page-content { padding: 26px 28px 40px; width: 100%; max-width: 1280px; }
+/*.page-content { padding: 26px 28px 40px; width: 100%; max-width: 1280px; }*/
+.page-content { padding: 26px 28px 40px; width: 100%; max-width: 1600px; margin: 0 auto; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .page-header p { margin-top: 4px; }
 .retour { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12.5px; padding: 0; margin-bottom: 6px; }
