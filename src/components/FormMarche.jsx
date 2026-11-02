@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { getEntites } from "../services/entites";
 import { getNatures, getModesPassation } from "../services/reference";
 import { creerMarche, modifierMarche } from "../services/marches";
+import { getPrmp } from "../services/prmp";
 import { formaterErreur } from "../utils/erreurs";
 
 export default function FormMarche({ marche, onTermine, onAnnuler }) {
   const [entites, setEntites] = useState([]);
   const [natures, setNatures] = useState([]);
   const [modes, setModes] = useState([]);
+  const [prmps, setPrmps] = useState([]);
   const [form, setForm] = useState({
     reference: marche?.reference || "", objet: marche?.objet || "",
-    id_entite: marche?.id_entite || "", id_nature: marche?.id_nature || "", id_mode_passation: marche?.id_mode_passation || "",
+    id_entite: marche?.id_entite || "", id_prmp: marche?.id_prmp || "", id_nature: marche?.id_nature || "", id_mode_passation: marche?.id_mode_passation || "",
     montant: marche?.montant ?? "", titulaire: marche?.titulaire || "",
     annee_exercice: marche?.annee_exercice || new Date().getFullYear(),
     hors_ppm: marche?.hors_ppm || false, marche_regularisation: marche?.marche_regularisation || false,
@@ -21,7 +23,10 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
   const maj = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   useEffect(() => { getEntites().then(setEntites); getNatures().then(setNatures); getModesPassation().then(setModes); }, []);
-
+  useEffect(() => {
+    if (!form.id_entite) { setPrmps([]); return; }
+    getPrmp(form.id_entite).then(setPrmps).catch(() => setPrmps([]));
+  }, [form.id_entite]);
   const soumettre = async (e) => {
     e.preventDefault();
     const err = {};
@@ -38,7 +43,8 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
 
     setEnvoi(true); setErreurServeur(null);
     const donnees = { ...form, reference: form.reference.trim(), id_entite: Number(form.id_entite), id_nature: Number(form.id_nature),
-                      id_mode_passation: Number(form.id_mode_passation), montant: Number(form.montant), annee_exercice: annee };
+      id_mode_passation: Number(form.id_mode_passation), montant: Number(form.montant), annee_exercice: annee,
+      id_prmp: form.id_prmp ? Number(form.id_prmp) : null };
     try {
       if (marche) await modifierMarche(marche.id, donnees); else await creerMarche(donnees);
       onTermine(marche ? "Marché modifié." : "Marché créé.");
@@ -64,10 +70,15 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
           {champ("reference", "Référence", <input className={classe("reference")} value={form.reference} onChange={(e) => maj("reference", e.target.value)} placeholder="Ex : M001/24" />)}
           {champ("annee_exercice", "Année d'exercice", <input className={classe("annee_exercice")} type="number" value={form.annee_exercice} onChange={(e) => maj("annee_exercice", e.target.value)} />)}
           {champ("id_entite", "Entité", (
-            <select className={classe("id_entite")} value={form.id_entite} onChange={(e) => maj("id_entite", e.target.value)}>
+            <select className={classe("id_entite")} value={form.id_entite} onChange={(e) => setForm((f) => ({ ...f, id_entite: e.target.value, id_prmp: "" }))}>
               <option value="">Sélectionner une entité</option>
               {entites.map((en) => <option key={en.id} value={en.id}>{en.nom}</option>)}
             </select>))}
+            {champ("id_prmp", "PRMP", (
+            <select className="input" value={form.id_prmp} onChange={(e) => maj("id_prmp", e.target.value)} disabled={!form.id_entite}>
+              <option value="">{form.id_entite ? "Aucune" : "Choisis d'abord une entité"}</option>
+              {prmps.map((p) => <option key={p.id} value={p.id}>{p.nom}</option>)}
+            </select>), false)}
           {champ("id_nature", "Nature", (
             <select className={classe("id_nature")} value={form.id_nature} onChange={(e) => maj("id_nature", e.target.value)}>
               <option value="">Sélectionner une nature</option>

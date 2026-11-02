@@ -1,5 +1,6 @@
-import api from "./api";
-export const connexion = (login, mot_de_passe) => api.post("/auth/login", { login, mot_de_passe }).then((r) => r.data);
+import api, { setJeton } from "./api";
+export const connexion = (login, mot_de_passe) =>
+  api.post("/auth/login", { login, mot_de_passe }).then((r) => { setJeton(r.data.jeton); return r.data; });
 export const getUtilisateurs = () => api.get("/auth/utilisateurs").then((r) => r.data);
 export const creerUtilisateur = (d) => api.post("/auth/utilisateurs", d).then((r) => r.data);
 export const basculerActif = (id) => api.put(`/auth/utilisateurs/${id}/actif`).then((r) => r.data);

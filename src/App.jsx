@@ -15,11 +15,12 @@ import Recommandations from "./pages/Recommandations";
 import Parametres from "./pages/Parametres";
 import Detection from "./pages/Detection";
 import Guide from "./pages/Guide";
+import Prmp from "./pages/Prmp";
 import "./theme.css";
 
 const PAGES = {
   "tableau-bord": Dashboard, "entites-marches": EntitesMarches, controles: Controles, "detail-controle": DetailControle,
-  documents: Documents, workflow: Workflow, rapports: Rapports, recommandations: Recommandations, parametres: Parametres, detection: Detection, guide: Guide,
+  documents: Documents, workflow: Workflow, rapports: Rapports, recommandations: Recommandations, parametres: Parametres, detection: Detection, guide: Guide, prmp: Prmp,
 };
 
 function Application() {

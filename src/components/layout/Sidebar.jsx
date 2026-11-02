@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 export const PAGES = [
   { id: "tableau-bord", label: "Tableau de bord", icone: "accueil" },
   { id: "entites-marches", label: "Entités & Marchés", icone: "entites" },
+  { id: "prmp", label: "PRMP", icone: "entites" },
   { id: "controles", label: "Contrôles", icone: "controles" },
   { id: "documents", label: "Documents", icone: "documents" },
   { id: "workflow", label: "Workflow de contrôle", icone: "workflow" },

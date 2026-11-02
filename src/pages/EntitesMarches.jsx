@@ -49,7 +49,7 @@ export default function EntitesMarches({ params, naviguer }) {
   const entitesFiltrees = entites.filter((e) =>
     (!filtre || e.type === filtre) && (!q || `${e.nom} ${e.region || ""}`.toLowerCase().includes(q)));
   const marchesFiltres = marches.filter((m) =>
-    (!filtre || m.nature === filtre) && (!q || `${m.reference} ${m.objet} ${m.entite} ${m.titulaire || ""}`.toLowerCase().includes(q)));
+    (!filtre || m.nature === filtre) && (!q || `${m.reference} ${m.objet} ${m.entite} ${m.prmp || ""} ${m.titulaire || ""}`.toLowerCase().includes(q)));
 
   const liste = onglet === "entites" ? entitesFiltrees : marchesFiltres;
   const visibles = liste.slice((page - 1) * TAILLE_PAGE, page * TAILLE_PAGE);
@@ -127,11 +127,11 @@ export default function EntitesMarches({ params, naviguer }) {
               </table>
             ) : (
               <table className="table">
-                <thead><tr><th>Référence</th><th>Objet</th><th>Entité</th><th>Nature</th><th>Mode de passation</th><th className="num">Montant</th><th>Année</th><th>Particularité</th><th className="num">Actions</th></tr></thead>
+                <thead><tr><th>Référence</th><th>Objet</th><th>Entité</th><th>PRMP</th><th>Nature</th><th>Mode de passation</th><th className="num">Montant</th><th>Année</th><th>Particularité</th><th className="num">Actions</th></tr></thead>
                 <tbody>
                   {visibles.map((m) => (
                     <tr key={m.id}>
-                      <td className="nowrap">{m.reference}</td><td style={{ maxWidth: 220 }}>{m.objet}</td><td>{m.entite}</td><td>{m.nature}</td><td>{m.mode_passation}</td>
+                      <td className="nowrap">{m.reference}</td><td style={{ maxWidth: 220 }}>{m.objet}</td><td>{m.entite}</td><td>{m.prmp || "—"}</td><td>{m.nature}</td><td>{m.mode_passation}</td>
                       <td className="num">{formatMontant(m.montant)}</td><td>{m.annee_exercice}</td>
                       <td>{m.hors_ppm && <span className="badge badge-danger">Hors PPM</span>} {m.marche_regularisation && <span className="badge badge-warning">Régularisation</span>}</td>
                       <td><div className="actions">

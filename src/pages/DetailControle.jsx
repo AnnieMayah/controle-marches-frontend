@@ -6,10 +6,11 @@ import { getControle, saisirNoteEtape, validerControle } from "../services/contr
 import { getEtapes } from "../services/reference";
 import { getIrregularitesControle, ajouterIrregularite, supprimerIrregularite } from "../services/irregularites";
 import { getDocumentsMarche, urlFichier } from "../services/documents";
-import { getAnomalies } from "../services/marches";
-import { urlRapportPdf } from "../services/divers";
+import { getAnomalies, getMarches } from "../services/marches";
+import { urlRapportPdf, urlRapportDocx } from "../services/divers";
 import { formaterErreur } from "../utils/erreurs";
 import { formatDate, formatMontant, statutControle } from "../utils/format";
+
 
 const CONSTAT_VIDE = { id_controle_etape: "", description: "", texte_applicable: "", risque: "Moyen", recommandation: "", impacte_attribution: false };
 
@@ -30,11 +31,13 @@ export default function DetailControle({ params, naviguer }) {
   const [confirmValider, setConfirmValider] = useState(false);
   const [aSupprimer, setASupprimer] = useState(null);
   const [constat, setConstat] = useState(CONSTAT_VIDE);
+  const [prmpNom, setPrmpNom] = useState("—");
 
   const charger = useCallback(async () => {
     try {
       const [c, e] = await Promise.all([getControle(id), getEtapes()]);
       setControle(c); setEtapes(e);
+      getMarches().then((ms) => setPrmpNom(ms.find((x) => x.id === c.id_marche)?.prmp || "—")).catch(() => {});
       const map = {};
       c.etapes_notees.forEach((x) => { map[x.id_etape] = { note: x.note, observations: x.observations || "" }; });
       setNotes(map);
@@ -45,6 +48,7 @@ export default function DetailControle({ params, naviguer }) {
   useEffect(() => { charger(); }, [charger]);
   useEffect(() => { if (!succes) return; const t = setTimeout(() => setSucces(null), 3500); return () => clearTimeout(t); }, [succes]);
 
+  const [menuRapport, setMenuRapport] = useState(false);
   if (!controle) return <>{erreur ? <div className="alerte alerte-erreur">{erreur}</div> : <p>Chargement du contrôle…</p>}</>;
 
   const m = controle.marche;
@@ -94,7 +98,7 @@ export default function DetailControle({ params, naviguer }) {
   };
 
   const infos = [
-    ["Référence du contrôle", controle.reference], ["Marché", m.reference], ["Entité", m.entite], ["Nature", m.nature],
+    ["Référence du contrôle", controle.reference], ["Marché", m.reference], ["Entité", m.entite], ["PRMP", prmpNom], ["Nature", m.nature],
     ["Mode de passation", m.mode_passation], ["Montant", formatMontant(m.montant)], ["Titulaire", m.titulaire || "—"],
     ["Année d'exercice", m.annee_exercice], ["Date du contrôle", formatDate(controle.date_controle)],
     ["Note globale", controle.note_globale !== null ? `${controle.note_globale} / 4` : "—"],
@@ -107,7 +111,20 @@ export default function DetailControle({ params, naviguer }) {
         <h1>Détail du contrôle</h1>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span className={`badge ${statut.classe}`}>{statut.label}</span>
-          <a className="btn btn-secondaire btn-sm" href={urlRapportPdf(controle.id_marche)} target="_blank" rel="noreferrer"><Icone nom="telecharger" taille={15} /> Voir le rapport</a>
+          <div style={{ position: "relative" }}>
+  <button className="btn btn-secondaire btn-sm" onClick={() => setMenuRapport((v) => !v)}>
+    <Icone nom="telecharger" taille={15} /> Générer un rapport ▾
+  </button>
+  {menuRapport && (
+    <div className="card" style={{ position: "absolute", right: 0, top: "110%", zIndex: 20, padding: 8,
+                                   display: "flex", flexDirection: "column", gap: 6, minWidth: 170 }}>
+      <a className="btn btn-secondaire btn-sm" href={urlRapportPdf(controle.id_marche)}
+         target="_blank" rel="noreferrer" onClick={() => setMenuRapport(false)}>PDF</a>
+      <a className="btn btn-secondaire btn-sm" href={urlRapportDocx(controle.id_marche)}
+         onClick={() => setMenuRapport(false)}>Word (.docx)</a>
+    </div>
+  )}
+</div>
           {peutValider && <button className="btn btn-sm" onClick={() => setConfirmValider(true)}><Icone nom="check" taille={15} /> Valider le contrôle</button>}
         </div>
       </div>
