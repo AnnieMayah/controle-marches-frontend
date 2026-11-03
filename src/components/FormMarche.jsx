@@ -4,15 +4,17 @@ import { getNatures, getModesPassation } from "../services/reference";
 import { creerMarche, modifierMarche } from "../services/marches";
 import { getPrmp } from "../services/prmp";
 import { formaterErreur } from "../utils/erreurs";
+import { getObjets } from "../services/objets";
 
 export default function FormMarche({ marche, onTermine, onAnnuler }) {
   const [entites, setEntites] = useState([]);
   const [natures, setNatures] = useState([]);
   const [modes, setModes] = useState([]);
   const [prmps, setPrmps] = useState([]);
+  const [objets, setObjets] = useState([]);
   const [form, setForm] = useState({
     reference: marche?.reference || "", objet: marche?.objet || "",
-    id_entite: marche?.id_entite || "", id_prmp: marche?.id_prmp || "", id_nature: marche?.id_nature || "", id_mode_passation: marche?.id_mode_passation || "",
+    id_entite: marche?.id_entite || "", id_prmp: marche?.id_prmp || "", id_objet: marche?.id_objet || "", id_nature: marche?.id_nature || "", id_mode_passation: marche?.id_mode_passation || "",
     montant: marche?.montant ?? "", titulaire: marche?.titulaire || "",
     annee_exercice: marche?.annee_exercice || new Date().getFullYear(),
     hors_ppm: marche?.hors_ppm || false, marche_regularisation: marche?.marche_regularisation || false,
@@ -22,7 +24,7 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
   const [envoi, setEnvoi] = useState(false);
   const maj = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  useEffect(() => { getEntites().then(setEntites); getNatures().then(setNatures); getModesPassation().then(setModes); }, []);
+  useEffect(() => { getEntites().then(setEntites); getNatures().then(setNatures); getModesPassation().then(setModes); getObjets().then(setObjets);}, []);
   useEffect(() => {
     if (!form.id_entite) { setPrmps([]); return; }
     getPrmp(form.id_entite).then(setPrmps).catch(() => setPrmps([]));
@@ -31,7 +33,7 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
     e.preventDefault();
     const err = {};
     if (!form.reference.trim()) err.reference = "La référence est obligatoire.";
-    if (!form.objet.trim()) err.objet = "L'objet du marché est obligatoire.";
+    if (!form.id_objet && !form.objet.trim()) err.id_objet = "Choisis l'objet du marché.";
     if (!form.id_entite) err.id_entite = "Choisis une entité.";
     if (!form.id_nature) err.id_nature = "Choisis une nature.";
     if (!form.id_mode_passation) err.id_mode_passation = "Choisis un mode de passation.";
@@ -44,11 +46,16 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
     setEnvoi(true); setErreurServeur(null);
     const donnees = { ...form, reference: form.reference.trim(), id_entite: Number(form.id_entite), id_nature: Number(form.id_nature),
       id_mode_passation: Number(form.id_mode_passation), montant: Number(form.montant), annee_exercice: annee,
-      id_prmp: form.id_prmp ? Number(form.id_prmp) : null };
+      id_prmp: form.id_prmp ? Number(form.id_prmp) : null, id_objet: form.id_objet ? Number(form.id_objet) : null };
     try {
       if (marche) await modifierMarche(marche.id, donnees); else await creerMarche(donnees);
       onTermine(marche ? "Marché modifié." : "Marché créé.");
     } catch (ex) { setErreurServeur(formaterErreur(ex)); setEnvoi(false); }
+  };
+
+  const choisirObjet = (id) => {
+    const o = objets.find((x) => String(x.id) === String(id));
+    setForm((f) => ({ ...f, id_objet: id, objet: o ? o.libelle : "" }));
   };
 
   const champ = (cle, libelle, contenu, requis = true) => (
@@ -92,7 +99,14 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
           {champ("montant", "Montant (Ar)", <input className={classe("montant")} type="number" min="0" value={form.montant} onChange={(e) => maj("montant", e.target.value)} />)}
           {champ("titulaire", "Titulaire", <input className="input" value={form.titulaire} onChange={(e) => maj("titulaire", e.target.value)} />, false)}
         </div>
-        {champ("objet", "Objet", <textarea className={classe("objet")} value={form.objet} onChange={(e) => maj("objet", e.target.value)} placeholder="Décris l'objet du marché" />)}
+        {champ("id_objet", "Objet du marché", (
+  <>
+    <select className={classe("id_objet")} value={form.id_objet} onChange={(e) => choisirObjet(e.target.value)}>
+      <option value="">Sélectionner un objet</option>
+      {objets.map((o) => <option key={o.id} value={o.id}>{o.compte} — {o.libelle}</option>)}
+    </select>
+    {!form.id_objet && form.objet && <div className="indication">Objet actuel (ancien format) : {form.objet}</div>}
+  </>))}
 
         <label className="case"><input type="checkbox" checked={form.hors_ppm} onChange={(e) => maj("hors_ppm", e.target.checked)} /> Marché hors PPM (non-conformité automatique)</label>
         <label className="case"><input type="checkbox" checked={form.marche_regularisation} onChange={(e) => maj("marche_regularisation", e.target.checked)} /> Marché de régularisation (non-conformité automatique)</label>
