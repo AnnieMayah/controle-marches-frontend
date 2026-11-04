@@ -262,9 +262,12 @@ export default function DetailControle({ params, naviguer }) {
                     <div className="champ"><label>Niveau de risque</label>
                       <select className="input" value={constat.risque} onChange={(e) => setConstat({ ...constat, risque: e.target.value })}>
                         <option>Faible</option><option>Moyen</option><option>Élevé</option></select></div>
-                    <div className="champ"><label>Texte réglementaire applicable</label>
-                      <input className="input" value={constat.texte_applicable} onChange={(e) => setConstat({ ...constat, texte_applicable: e.target.value })} placeholder="Ex : Code des marchés publics, art. 45" /></div>
+                        
                   </div>
+                  <div className="champ"><label>Texte réglementaire applicable</label>
+  <textarea className="input" style={{ minHeight: 56 }} rows={2} value={constat.texte_applicable}
+    onChange={(e) => setConstat({ ...constat, texte_applicable: e.target.value })}
+    placeholder="Ex : Article 45 de la loi n°2016-055 : « … »" /></div>
                   <div className="champ"><label>Description du constat <span className="requis">*</span></label>
                     <textarea className="input" value={constat.description} onChange={(e) => setConstat({ ...constat, description: e.target.value })} /></div>
                   <div className="champ"><label>Recommandation / mesure corrective</label>
