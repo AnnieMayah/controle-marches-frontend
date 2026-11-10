@@ -10,6 +10,7 @@ import { getAnomalies, getMarches } from "../services/marches";
 import { urlRapportPdf, urlRapportDocx } from "../services/divers";
 import { formaterErreur } from "../utils/erreurs";
 import { formatDate, formatMontant, statutControle } from "../utils/format";
+import CircuitControle from "../components/CircuitControle";
 
 
 const CONSTAT_VIDE = { id_controle_etape: "", description: "", texte_applicable: "", risque: "Moyen", recommandation: "", impacte_attribution: false };
@@ -53,9 +54,9 @@ export default function DetailControle({ params, naviguer }) {
 
   const m = controle.marche;
   const statut = statutControle(controle);
-  const peutEditer = droits.noter && !controle.valide;
+  const peutEditer = droits.noter && !controle.valide && controle.niveau !== "VALIDATION";;
   const toutesNotees = etapes.length > 0 && controle.nb_etapes_notees >= etapes.length;
-  const peutValider = droits.valider && !controle.valide && toutesNotees;
+  const peutValider = droits.valider && !controle.valide && toutesNotees && controle.niveau === "VALIDATION";
 
   const majNote = (idEtape, champ, valeur) => setNotes((p) => ({ ...p, [idEtape]: { ...p[idEtape], [champ]: valeur } }));
 
@@ -144,7 +145,7 @@ export default function DetailControle({ params, naviguer }) {
       </div>
 
       <div className="tabs-soulignes">
-        {[["infos", "Informations"], ["notation", "Notation des étapes"], ["detection", `Détection automatique (${anomalies.length})`], ["constats", `Constats (${irregs.length})`], ["pieces", `Pièces jointes (${docs.length})`]].map(([k, l]) => (
+        {[["infos", "Informations"], ["notation", "Notation des étapes"], ["detection", `Détection automatique (${anomalies.length})`], ["constats", `Constats (${irregs.length})`], ["pieces", `Pièces jointes (${docs.length})`],["circuit", "Circuit de validation"]].map(([k, l]) => (
           <button key={k} className={`tab-s ${onglet === k ? "actif" : ""}`} onClick={() => setOnglet(k)}>{l}</button>
         ))}
       </div>
@@ -312,6 +313,8 @@ export default function DetailControle({ params, naviguer }) {
           )}
         </div>
       )}
+      
+      {onglet === "circuit" && <CircuitControle idControle={id} />}
 
       <ConfirmDialog ouvert={confirmValider} titre="Valider le contrôle" danger={false} libelleConfirmer="Valider définitivement"
         message="Une fois validé, ce contrôle ne pourra plus être modifié. La conclusion sera figée et prise en compte dans les statistiques."

@@ -18,6 +18,12 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
     montant: marche?.montant ?? "", titulaire: marche?.titulaire || "",
     annee_exercice: marche?.annee_exercice || new Date().getFullYear(),
     hors_ppm: marche?.hors_ppm || false, marche_regularisation: marche?.marche_regularisation || false,
+    numero_saisie: marche?.numero_saisie || "", direction_service: marche?.direction_service || "",
+    forme_contrat: marche?.forme_contrat || "", montant_min: marche?.montant_min ?? "",
+    montant_max: marche?.montant_max ?? "", montant_tef: marche?.montant_tef ?? "",
+    forme_prix: marche?.forme_prix || "", delai_execution: marche?.delai_execution || "",
+    financement: marche?.financement || "", date_signature: marche?.date_signature || "",
+    date_approbation: marche?.date_approbation || "", date_notification: marche?.date_notification || "",
   });
   const [erreurs, setErreurs] = useState({});
   const [erreurServeur, setErreurServeur] = useState(null);
@@ -98,6 +104,26 @@ export default function FormMarche({ marche, onTermine, onAnnuler }) {
             </select>))}
           {champ("montant", "Montant (Ar)", <input className={classe("montant")} type="number" min="0" value={form.montant} onChange={(e) => maj("montant", e.target.value)} />)}
           {champ("titulaire", "Titulaire", <input className="input" value={form.titulaire} onChange={(e) => maj("titulaire", e.target.value)} />, false)}
+       
+          {champ("numero_saisie", "Numéro de saisie", <input className="input" value={form.numero_saisie} onChange={(e) => maj("numero_saisie", e.target.value)} />, false)}
+          {champ("direction_service", "Direction / Service", <input className="input" value={form.direction_service} onChange={(e) => maj("direction_service", e.target.value)} />, false)}
+          {champ("forme_contrat", "Forme du contrat", (
+            <select className="input" value={form.forme_contrat} onChange={(e) => maj("forme_contrat", e.target.value)}>
+              <option value="">—</option><option value="QUANTITE_FIXE">À quantité fixe</option><option value="COMMANDES">À commandes</option>
+            </select>), false)}
+          {champ("forme_prix", "Forme du prix", (
+            <select className="input" value={form.forme_prix} onChange={(e) => maj("forme_prix", e.target.value)}>
+              <option value="">—</option><option value="UNITAIRE">Unitaire</option><option value="FORFAITAIRE">Forfaitaire</option>
+            </select>), false)}
+          {champ("montant_min", "Montant minimum (Ar)", <input className="input" type="number" min="0" value={form.montant_min} onChange={(e) => maj("montant_min", e.target.value)} />, false)}
+          {champ("montant_max", "Montant maximum (Ar)", <input className="input" type="number" min="0" value={form.montant_max} onChange={(e) => maj("montant_max", e.target.value)} />, false)}
+          {champ("montant_tef", "Montant du TEF (Ar)", <input className="input" type="number" min="0" value={form.montant_tef} onChange={(e) => maj("montant_tef", e.target.value)} />, false)}
+          {champ("delai_execution", "Délai d'exécution / livraison", <input className="input" value={form.delai_execution} onChange={(e) => maj("delai_execution", e.target.value)} />, false)}
+          {champ("financement", "Financement", <input className="input" value={form.financement} onChange={(e) => maj("financement", e.target.value)} />, false)}
+          {champ("date_signature", "Date de signature", <input className="input" type="date" value={form.date_signature} onChange={(e) => maj("date_signature", e.target.value)} />, false)}
+          {champ("date_approbation", "Date d'approbation", <input className="input" type="date" value={form.date_approbation} onChange={(e) => maj("date_approbation", e.target.value)} />, false)}
+          {champ("date_notification", "Date de notification", <input className="input" type="date" value={form.date_notification} onChange={(e) => maj("date_notification", e.target.value)} />, false)}
+        
         </div>
         {champ("id_objet", "Objet du marché", (
   <>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Icone from "../components/ui/Icone";
 import Pagination from "../components/ui/Pagination";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
@@ -9,10 +9,11 @@ import { getEntites, supprimerEntite } from "../services/entites";
 import { getMarches, supprimerMarche } from "../services/marches";
 import { creerOuRecupererControle } from "../services/controles";
 import { formaterErreur } from "../utils/erreurs";
-import { formatMontant } from "../utils/format";
+import { formatDate, formatMontant } from "../utils/format";
 
 const TAILLE_PAGE = 8;
-
+const FORMES_CONTRAT = { QUANTITE_FIXE: "À quantité fixe", COMMANDES: "À commandes" };
+const FORMES_PRIX = { UNITAIRE: "Unitaire", FORFAITAIRE: "Forfaitaire" };
 export default function EntitesMarches({ params, naviguer }) {
   const { droits } = useAuth();
   const [onglet, setOnglet] = useState(params.onglet || "entites");
@@ -27,6 +28,7 @@ export default function EntitesMarches({ params, naviguer }) {
   const [message, setMessage] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [chargement, setChargement] = useState(true);
+  const [detailMarche, setDetailMarche] = useState(null);
 
   const charger = useCallback(() => {
     Promise.all([getEntites(), getMarches()])
@@ -68,6 +70,7 @@ export default function EntitesMarches({ params, naviguer }) {
     catch (err) { setErreur(formaterErreur(err)); }
   };
 
+  
   const natures = [...new Set(marches.map((m) => m.nature))];
 
   return (
@@ -135,6 +138,7 @@ export default function EntitesMarches({ params, naviguer }) {
                       <td className="num">{formatMontant(m.montant)}</td><td>{m.annee_exercice}</td>
                       <td>{m.hors_ppm && <span className="badge badge-danger">Hors PPM</span>} {m.marche_regularisation && <span className="badge badge-warning">Régularisation</span>}</td>
                       <td><div className="actions">
+                      <button className="btn-icone" title="Voir les informations" onClick={() => setDetailMarche(m)}><Icone nom="oeil" /></button>
                         {droits.noter && <button className="btn-icone" title="Ouvrir / démarrer le contrôle" onClick={() => controler(m)}><Icone nom="controles" /></button>}
                         {droits.gererDonnees && <>
                           <button className="btn-icone" title="Modifier" onClick={() => { setEdition(m); setVue("form-marche"); }}><Icone nom="crayon" /></button>
@@ -150,6 +154,34 @@ export default function EntitesMarches({ params, naviguer }) {
         )}
         <Pagination total={liste.length} page={page} taille={TAILLE_PAGE} onChange={setPage} />
       </div>
+      
+      {detailMarche && (
+  <div onClick={() => setDetailMarche(null)}
+       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+    <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 720, maxHeight: "85vh", overflowY: "auto" }}>
+      <div className="card-entete">
+        <h3>Marché {detailMarche.reference}</h3>
+        <button className="btn-icone" title="Fermer" onClick={() => setDetailMarche(null)}>✕</button>
+      </div>
+      <dl className="info-grille" style={{ margin: 0 }}>
+        {[
+          ["N° de saisie", detailMarche.numero_saisie || "—"],
+          ["Direction / Service", detailMarche.direction_service || "—"],
+          ["Forme du contrat", FORMES_CONTRAT[detailMarche.forme_contrat] || "—"],
+          ["Forme du prix", FORMES_PRIX[detailMarche.forme_prix] || "—"],
+          ["Montant minimum", detailMarche.montant_min != null ? formatMontant(detailMarche.montant_min) : "—"],
+          ["Montant maximum", detailMarche.montant_max != null ? formatMontant(detailMarche.montant_max) : "—"],
+          ["Montant du TEF", detailMarche.montant_tef != null ? formatMontant(detailMarche.montant_tef) : "—"],
+          ["Délai d'exécution", detailMarche.delai_execution || "—"],
+          ["Financement", detailMarche.financement || "—"],
+          ["Date de signature", detailMarche.date_signature ? formatDate(detailMarche.date_signature) : "—"],
+          ["Date d'approbation", detailMarche.date_approbation ? formatDate(detailMarche.date_approbation) : "—"],
+          ["Date de notification", detailMarche.date_notification ? formatDate(detailMarche.date_notification) : "—"],
+        ].map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+      </dl>
+    </div>
+  </div>
+)}
 
       <ConfirmDialog ouvert={!!aSupprimer} titre="Confirmer la suppression"
         message={aSupprimer?.type === "marche"

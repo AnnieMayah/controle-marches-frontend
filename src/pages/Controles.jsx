@@ -93,6 +93,7 @@ export default function Controles({ naviguer }) {
                     <tr key={c.id}>
                       <td className="nowrap">{c.reference}</td><td>{c.entite}</td><td>{c.reference_marche}</td><td>{c.nature}</td><td>{formatDate(c.date_controle)}</td>
                       <td><Avancement c={c} /></td>
+                      <td><span className="badge badge-info">{c.niveau || "—"}</span></td>
                       <td><span className={`badge ${s.classe}`}>{s.label}</span></td>
                       <td><div className="actions"><button className="btn-icone" title="Ouvrir" onClick={() => naviguer("detail-controle", { idControle: c.id })}><Icone nom="oeil" /></button></div></td>
                     </tr>
