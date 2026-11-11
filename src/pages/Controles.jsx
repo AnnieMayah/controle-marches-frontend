@@ -4,6 +4,7 @@ import Pagination from "../components/ui/Pagination";
 import { useAuth } from "../context/AuthContext";
 import { getControles, creerOuRecupererControle } from "../services/controles";
 import { getMarches } from "../services/marches";
+import { getATraiter } from "../services/transferts";
 import { formaterErreur } from "../utils/erreurs";
 import { formatDate, statutControle } from "../utils/format";
 
@@ -30,6 +31,8 @@ export default function Controles({ naviguer }) {
   const [idMarche, setIdMarche] = useState("");
   const [erreur, setErreur] = useState(null);
   const [chargement, setChargement] = useState(true);
+  const [aTraiter, setATraiter] = useState([]);
+  const [seulementMiens, setSeulementMiens] = useState(false);
 
   useEffect(() => {
     Promise.all([getControles(), getMarches()])
@@ -38,9 +41,12 @@ export default function Controles({ naviguer }) {
       .finally(() => setChargement(false));
   }, []);
 
+  useEffect(() => { getATraiter().then(setATraiter).catch(() => {}); }, []);
+
   const q = recherche.trim().toLowerCase();
   const filtres = controles.filter((c) =>
     (!filtreStatut || statutControle(c).label === filtreStatut) &&
+    (!seulementMiens || aTraiter.includes(c.id)) &&
     (!q || `${c.reference} ${c.entite} ${c.reference_marche} ${c.nature}`.toLowerCase().includes(q)));
   const visibles = filtres.slice((page - 1) * TAILLE_PAGE, page * TAILLE_PAGE);
 
@@ -80,12 +86,13 @@ export default function Controles({ naviguer }) {
           <select className="input" value={filtreStatut} onChange={(e) => { setFiltreStatut(e.target.value); setPage(1); }}>
             <option value="">Tous les statuts</option><option>À démarrer</option><option>En cours</option><option>Conforme</option><option>Non conforme</option>
           </select>
+          <label className="case" style={{ margin: 0 }}><input type="checkbox" checked={seulementMiens} onChange={(e) => { setSeulementMiens(e.target.checked); setPage(1); }} /> Mes contrôles à traiter ({aTraiter.length})</label>
         </div>
 
         {chargement ? <p>Chargement…</p> : filtres.length === 0 ? <div className="vide">Aucun contrôle.</div> : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>N°</th><th>Établissement</th><th>Marché</th><th>Type</th><th>Date</th><th>Avancement</th><th>Statut</th><th className="num">Actions</th></tr></thead>
+              <thead><tr><th>N°</th><th>Établissement</th><th>Marché</th><th>Type</th><th>Date</th><th>Avancement</th><th>Niveau</th><th>Statut</th><th className="num">Actions</th></tr></thead>
               <tbody>
                 {visibles.map((c) => {
                   const s = statutControle(c);

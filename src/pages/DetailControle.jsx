@@ -4,13 +4,15 @@ import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
 import { getControle, saisirNoteEtape, validerControle } from "../services/controles";
 import { getEtapes } from "../services/reference";
-import { getIrregularitesControle, ajouterIrregularite, supprimerIrregularite } from "../services/irregularites";
+import { getIrregularitesControle, ajouterIrregularite, modifierIrregularite, supprimerIrregularite } from "../services/irregularites";
 import { getDocumentsMarche, urlFichier } from "../services/documents";
 import { getAnomalies, getMarches } from "../services/marches";
 import { urlRapportPdf, urlRapportDocx } from "../services/divers";
 import { formaterErreur } from "../utils/erreurs";
 import { formatDate, formatMontant, statutControle } from "../utils/format";
 import CircuitControle from "../components/CircuitControle";
+import PiecesConstat from "../components/PiecesConstat";
+import { getAnomaliesDetaillees } from "../services/anomalies";
 
 
 const CONSTAT_VIDE = { id_controle_etape: "", description: "", texte_applicable: "", risque: "Moyen", recommandation: "", impacte_attribution: false };
@@ -32,7 +34,9 @@ export default function DetailControle({ params, naviguer }) {
   const [confirmValider, setConfirmValider] = useState(false);
   const [aSupprimer, setASupprimer] = useState(null);
   const [constat, setConstat] = useState(CONSTAT_VIDE);
+  const [enEdition, setEnEdition] = useState(null);
   const [prmpNom, setPrmpNom] = useState("—");
+  const [suggestionsDet, setSuggestionsDet] = useState([]);
 
   const charger = useCallback(async () => {
     try {
@@ -44,6 +48,7 @@ export default function DetailControle({ params, naviguer }) {
       setNotes(map);
       const [i, d, a] = await Promise.all([getIrregularitesControle(id), getDocumentsMarche(c.id_marche), getAnomalies(c.id_marche)]);
       setIrregs(i); setDocs(d); setAnomalies(a.suggestions);
+      getAnomaliesDetaillees(c.id_marche).then(setSuggestionsDet).catch(() => {});
     } catch (err) { setErreur(formaterErreur(err)); }
   }, [id]);
   useEffect(() => { charger(); }, [charger]);
@@ -53,8 +58,14 @@ export default function DetailControle({ params, naviguer }) {
   if (!controle) return <>{erreur ? <div className="alerte alerte-erreur">{erreur}</div> : <p>Chargement du contrôle…</p>}</>;
 
   const m = controle.marche;
+  const utiliserSuggestion = (a) => {
+    const det = suggestionsDet.find((x) => x.description === a);
+    const et = det?.etape && controle.etapes_notees.find((x) => x.libelle_etape === det.etape);
+    setConstat((c) => ({ ...c, description: a, texte_applicable: det?.texte_applicable || c.texte_applicable,
+                         id_controle_etape: et ? String(et.id) : c.id_controle_etape }));
+  };
   const statut = statutControle(controle);
-  const peutEditer = droits.noter && !controle.valide && controle.niveau !== "VALIDATION";;
+  const peutEditer = droits.noter && !controle.valide && controle.niveau !== "VALIDATION";
   const toutesNotees = etapes.length > 0 && controle.nb_etapes_notees >= etapes.length;
   const peutValider = droits.valider && !controle.valide && toutesNotees && controle.niveau === "VALIDATION";
 
@@ -79,13 +90,14 @@ export default function DetailControle({ params, naviguer }) {
 
   const ajouterConstat = async (e) => {
     e.preventDefault(); setErreur(null);
-    if (!constat.id_controle_etape) { setErreur("Choisis l'étape concernée par ce constat."); return; }
+    if (!enEdition && !constat.id_controle_etape) { setErreur("Choisis l'étape concernée par ce constat."); return; }
     if (!constat.description.trim()) { setErreur("La description du constat est obligatoire."); return; }
     try {
-      await ajouterIrregularite({ ...constat, id_controle_etape: Number(constat.id_controle_etape) });
+      if (enEdition) { await modifierIrregularite(enEdition, constat); setEnEdition(null); }
+      else await ajouterIrregularite({ ...constat, id_controle_etape: Number(constat.id_controle_etape) });
       setConstat(CONSTAT_VIDE);
       const [i, c] = await Promise.all([getIrregularitesControle(id), getControle(id)]);
-      setIrregs(i); setControle(c); setSucces("Constat enregistré.");
+      setIrregs(i); setControle(c); setSucces(enEdition ? "Constat modifié." : "Constat enregistré.");
     } catch (err) { setErreur(formaterErreur(err)); }
   };
 
@@ -223,7 +235,7 @@ export default function DetailControle({ params, naviguer }) {
               <ul>
                 {anomalies.map((a, i) => (
                   <li key={i}>{a}{" "}
-                    <button className="lien-voir" onClick={() => setConstat((c) => ({ ...c, description: a }))}>Utiliser comme constat</button>
+                    <button className="lien-voir" onClick={() => { utiliserSuggestion(a); setOnglet("constats"); }}>Utiliser comme constat</button>
                   </li>
                 ))}
               </ul>
@@ -234,14 +246,18 @@ export default function DetailControle({ params, naviguer }) {
             <div className="card-entete"><h3>Constats enregistrés</h3></div>
             {irregs.length === 0 ? <div className="vide">Aucun constat enregistré.</div> : (
               <div className="table-wrap"><table className="table">
-                <thead><tr><th>Étape</th><th>Constat</th><th>Texte applicable</th><th>Risque</th><th>Recommandation</th><th></th></tr></thead>
+                <thead><tr><th>Étape</th><th>Constat</th><th>Texte applicable</th><th>Risque</th><th>Recommandation</th><th>Pièces</th><th></th></tr></thead>
                 <tbody>
                   {irregs.map((i) => (
                     <tr key={i.id}>
                       <td>{i.libelle_etape}</td>
                       <td>{i.description}{i.impacte_attribution && <> <span className="badge badge-danger">Impacte l'attribution</span></>}</td>
                       <td>{i.texte_applicable || "—"}</td><td>{i.risque || "—"}</td><td>{i.recommandation || "—"}</td>
-                      <td>{peutEditer && <button className="btn-icone danger" title="Supprimer" onClick={() => setASupprimer(i)}><Icone nom="corbeille" /></button>}</td>
+                      <td><PiecesConstat idIrregularite={i.id} documents={docs} editable={peutEditer} /></td>
+                      <td>{peutEditer && <div className="actions">
+                        <button className="btn-icone" title="Modifier" onClick={() => { setEnEdition(i.id); setConstat({ ...CONSTAT_VIDE, description: i.description, texte_applicable: i.texte_applicable || "", risque: i.risque || "Moyen", recommandation: i.recommandation || "", impacte_attribution: !!i.impacte_attribution }); window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); }}><Icone nom="crayon" /></button>
+                        <button className="btn-icone danger" title="Supprimer" onClick={() => setASupprimer(i)}><Icone nom="corbeille" /></button>
+                      </div>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -251,19 +267,19 @@ export default function DetailControle({ params, naviguer }) {
 
           {peutEditer && (
             <form className="card" onSubmit={ajouterConstat} noValidate>
-              <div className="card-entete"><h3>Ajouter un constat</h3></div>
+              <div className="card-entete"><h3>{enEdition ? "Modifier le constat" : "Ajouter un constat"}</h3></div>
               {controle.etapes_notees.length === 0 ? <p>Note d'abord au moins une étape (onglet « Notation des étapes ») pour pouvoir lui rattacher un constat.</p> : (
                 <>
                   <div className="form-grille">
                     <div className="champ"><label>Étape concernée <span className="requis">*</span></label>
-                      <select className="input" value={constat.id_controle_etape} onChange={(e) => setConstat({ ...constat, id_controle_etape: e.target.value })}>
+                      <select className="input" disabled={!!enEdition} value={constat.id_controle_etape} onChange={(e) => setConstat({ ...constat, id_controle_etape: e.target.value })}>
                         <option value="">Sélectionner une étape</option>
                         {controle.etapes_notees.map((x) => <option key={x.id} value={x.id}>{x.libelle_etape}</option>)}
                       </select></div>
                     <div className="champ"><label>Niveau de risque</label>
                       <select className="input" value={constat.risque} onChange={(e) => setConstat({ ...constat, risque: e.target.value })}>
                         <option>Faible</option><option>Moyen</option><option>Élevé</option></select></div>
-                        
+
                   </div>
                   <div className="champ"><label>Texte réglementaire applicable</label>
   <textarea className="input" style={{ minHeight: 56 }} rows={2} value={constat.texte_applicable}
@@ -273,8 +289,11 @@ export default function DetailControle({ params, naviguer }) {
                     <textarea className="input" value={constat.description} onChange={(e) => setConstat({ ...constat, description: e.target.value })} /></div>
                   <div className="champ"><label>Recommandation / mesure corrective</label>
                     <textarea className="input" value={constat.recommandation} onChange={(e) => setConstat({ ...constat, recommandation: e.target.value })} /></div>
-                  <label className="case"><input type="checkbox" checked={constat.impacte_attribution} onChange={(e) => setConstat({ ...constat, impacte_attribution: e.target.checked })} /> Cette irrégularité impacte l'attribution du marché (non-conformité automatique)</label>
-                  <div className="form-actions"><button className="btn" type="submit">Enregistrer le constat</button></div>
+                  <label className="case"><input type="checkbox" disabled={!!enEdition} checked={constat.impacte_attribution} onChange={(e) => setConstat({ ...constat, impacte_attribution: e.target.checked })} /> Cette irrégularité impacte l'attribution du marché (non-conformité automatique)</label>
+                  <div className="form-actions">
+                    <button className="btn" type="submit">Enregistrer le constat</button>
+                    {enEdition && <button className="btn btn-secondaire" type="button" onClick={() => { setEnEdition(null); setConstat(CONSTAT_VIDE); }}>Annuler</button>}
+                  </div>
                 </>
               )}
             </form>
@@ -292,7 +311,7 @@ export default function DetailControle({ params, naviguer }) {
             <div className="table-wrap"><table className="table"><thead><tr><th>Anomalie suspectée</th><th className="num">Action</th></tr></thead>
               <tbody>{anomalies.map((a, i) => (
                 <tr key={i}><td>{a}</td>
-                  <td><div className="actions">{peutEditer && <button className="btn btn-secondaire btn-sm" onClick={() => { setConstat((c) => ({ ...c, description: a })); setOnglet("constats"); }}>Utiliser comme constat</button>}</div></td></tr>
+                  <td><div className="actions">{peutEditer && <button className="btn btn-secondaire btn-sm" onClick={() => { utiliserSuggestion(a); setOnglet("constats"); }}>Utiliser comme constat</button>}</div></td></tr>
               ))}</tbody></table></div>
           )}
           <p className="echelle">Règles : mode non concurrentiel + montant élevé · hors PPM · marché de régularisation · contrat ou PV d'ouverture des plis manquants.</p>
@@ -313,7 +332,7 @@ export default function DetailControle({ params, naviguer }) {
           )}
         </div>
       )}
-      
+
       {onglet === "circuit" && <CircuitControle idControle={id} />}
 
       <ConfirmDialog ouvert={confirmValider} titre="Valider le contrôle" danger={false} libelleConfirmer="Valider définitivement"
