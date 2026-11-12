@@ -13,7 +13,8 @@ import { formaterErreur } from "../utils/erreurs";
 import { formatDate, formatMontant } from "../utils/format";
 
 const TAILLE_PAGE = 8;
-const VIDE_PRMP = { id: null, nom: "", id_entite: "" };
+const VIDE_PRMP = { id: null, nom: "", id_entite: "", email: "" };
+const REGEX_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const FORMES_CONTRAT = { QUANTITE_FIXE: "À quantité fixe", COMMANDES: "À commandes" };
 const FORMES_PRIX = { UNITAIRE: "Unitaire", FORFAITAIRE: "Forfaitaire" };
 
@@ -56,7 +57,7 @@ export default function EntitesMarches({ params, naviguer }) {
   const entitesFiltrees = entites.filter((e) =>
     (!filtre || e.type === filtre) && (!q || `${e.nom} ${e.region || ""}`.toLowerCase().includes(q)));
   const prmpsFiltres = prmps.filter((p) =>
-    (!filtre || String(p.id_entite) === filtre) && (!q || `${p.nom} ${p.entite}`.toLowerCase().includes(q)));
+    (!filtre || String(p.id_entite) === filtre) && (!q || `${p.nom} ${p.entite} ${p.email || ""}`.toLowerCase().includes(q)));
   const marchesFiltres = marches.filter((m) =>
     (!filtre || m.nature === filtre) && (!q || `${m.reference} ${m.objet} ${m.entite} ${m.prmp || ""} ${m.titulaire || ""} ${m.compte || ""}`.toLowerCase().includes(q)));
 
@@ -67,7 +68,9 @@ export default function EntitesMarches({ params, naviguer }) {
     e.preventDefault(); setErreur(null);
     if (!formPrmp.nom.trim()) { setErreur("Le nom de la PRMP est obligatoire."); return; }
     if (!formPrmp.id_entite) { setErreur("Choisis l'entité de cette PRMP."); return; }
-    const donnees = { nom: formPrmp.nom.trim(), id_entite: Number(formPrmp.id_entite) };
+    const email = formPrmp.email.trim();
+    if (email && !REGEX_EMAIL.test(email)) { setErreur("L'adresse e-mail n'est pas valide."); return; }
+    const donnees = { nom: formPrmp.nom.trim(), id_entite: Number(formPrmp.id_entite), email };
     try {
       if (formPrmp.id) await modifierPrmp(formPrmp.id, donnees); else await creerPrmp(donnees);
       setMessage(formPrmp.id ? "PRMP modifiée." : "PRMP ajoutée.");
@@ -132,6 +135,8 @@ export default function EntitesMarches({ params, naviguer }) {
                   <option value="">Sélectionner une entité</option>
                   {entites.map((x) => <option key={x.id} value={x.id}>{x.nom}</option>)}
                 </select></div>
+              <div className="champ"><label>E-mail</label>
+                <input className="input" type="email" value={formPrmp.email} onChange={(e) => setFormPrmp({ ...formPrmp, email: e.target.value })} placeholder="Ex : rakoto.hery@exemple.mg" /></div>
             </div>
             <div className="form-actions">
               <button className="btn" type="submit">{formPrmp.id ? "Enregistrer" : "Ajouter"}</button>
@@ -181,14 +186,14 @@ export default function EntitesMarches({ params, naviguer }) {
               </table>
             ) : onglet === "prmp" ? (
               <table className="table">
-                <thead><tr><th>N°</th><th>Nom de la PRMP</th><th>Entité</th><th className="num">Nb marchés</th><th className="num">Actions</th></tr></thead>
+                <thead><tr><th>N°</th><th>Nom de la PRMP</th><th>Entité</th><th>E-mail</th><th className="num">Nb marchés</th><th className="num">Actions</th></tr></thead>
                 <tbody>
                   {visibles.map((p) => (
                     <tr key={p.id}>
-                      <td className="nowrap">PRMP-{String(p.id).padStart(3, "0")}</td><td>{p.nom}</td><td>{p.entite}</td><td className="num">{p.nb_marches}</td>
+                      <td className="nowrap">PRMP-{String(p.id).padStart(3, "0")}</td><td>{p.nom}</td><td>{p.entite}</td><td>{p.email || "—"}</td><td className="num">{p.nb_marches}</td>
                       <td><div className="actions">
                         {droits.gererDonnees && <>
-                          <button className="btn-icone" title="Modifier" onClick={() => { setFormPrmp({ id: p.id, nom: p.nom, id_entite: String(p.id_entite) }); setErreur(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Icone nom="crayon" /></button>
+                          <button className="btn-icone" title="Modifier" onClick={() => { setFormPrmp({ id: p.id, nom: p.nom, id_entite: String(p.id_entite), email: p.email || "" }); setErreur(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Icone nom="crayon" /></button>
                           <button className="btn-icone danger" title="Supprimer" onClick={() => setASupprimer({ type: "prmp", id: p.id, libelle: p.nom })}><Icone nom="corbeille" /></button>
                         </>}
                       </div></td>

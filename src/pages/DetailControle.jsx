@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import Icone from "../components/ui/Icone";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { useAuth } from "../context/AuthContext";
-import { getControle, saisirNoteEtape, validerControle } from "../services/controles";
 import { getEtapes } from "../services/reference";
 import { getIrregularitesControle, ajouterIrregularite, modifierIrregularite, supprimerIrregularite } from "../services/irregularites";
 import { getDocumentsMarche, urlFichier } from "../services/documents";
@@ -13,7 +12,7 @@ import { formatDate, formatMontant, statutControle } from "../utils/format";
 import CircuitControle from "../components/CircuitControle";
 import PiecesConstat from "../components/PiecesConstat";
 import { getAnomaliesDetaillees } from "../services/anomalies";
-
+import { getControle, saisirNoteEtape, validerControle, envoyerResultat } from "../services/controles";
 
 const CONSTAT_VIDE = { id_controle_etape: "", description: "", texte_applicable: "", risque: "Moyen", recommandation: "", impacte_attribution: false };
 
@@ -37,7 +36,7 @@ export default function DetailControle({ params, naviguer }) {
   const [enEdition, setEnEdition] = useState(null);
   const [prmpNom, setPrmpNom] = useState("—");
   const [suggestionsDet, setSuggestionsDet] = useState([]);
-
+  const [enEnvoi, setEnEnvoi] = useState(false);
   const charger = useCallback(async () => {
     try {
       const [c, e] = await Promise.all([getControle(id), getEtapes()]);
@@ -84,8 +83,25 @@ export default function DetailControle({ params, naviguer }) {
 
   const valider = async () => {
     setConfirmValider(false); setErreur(null);
-    try { await validerControle(id, utilisateur.id); await charger(); setSucces("Contrôle validé définitivement."); }
-    catch (err) { setErreur(formaterErreur(err)); }
+    try {
+      const r = await validerControle(id, utilisateur.id);
+      await charger();
+      const n = r?.notification;
+      setSucces(n?.ok
+        ? `Contrôle validé définitivement. Résultat envoyé à ${n.destinataire}.`
+        : `Contrôle validé définitivement. E-mail non envoyé : ${n?.erreur || "erreur inconnue"}`);
+    } catch (err) { setErreur(formaterErreur(err)); }
+  };
+
+  const notifier = async () => {
+    setErreur(null); setEnEnvoi(true);
+    try {
+      const r = await envoyerResultat(id);
+      setSucces(r.mode_dev
+        ? "Aucun e-mail réellement envoyé : config_mail.py n'est pas configuré (mode développement)."
+        : `Résultat envoyé à ${r.destinataire}.`);
+    } catch (err) { setErreur(formaterErreur(err)); }
+    finally { setEnEnvoi(false); }
   };
 
   const ajouterConstat = async (e) => {
@@ -139,6 +155,11 @@ export default function DetailControle({ params, naviguer }) {
   )}
 </div>
           {peutValider && <button className="btn btn-sm" onClick={() => setConfirmValider(true)}><Icone nom="check" taille={15} /> Valider le contrôle</button>}
+          {controle.valide && droits.valider && (
+  <button className="btn btn-sm" disabled={enEnvoi} onClick={notifier}>
+    {enEnvoi ? "Envoi…" : "Notifier la PRMP"}
+  </button>
+)}
         </div>
       </div>
 
