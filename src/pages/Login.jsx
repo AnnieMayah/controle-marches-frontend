@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Icone from "../components/ui/Icone";
 import ChampMotDePasse from "../components/ui/ChampMotDePasse";
 import { useAuth } from "../context/AuthContext";
-import { inscription, verifierInscription, renvoyerCode, motDePasseOublie, reinitialiserMotDePasse } from "../services/auth";
+import { inscription, verifierInscription, renvoyerCode, motDePasseOublie, reinitialiserMotDePasse, verifierCodeReinitialisation } from "../services/auth";
 import { formaterErreur } from "../utils/erreurs";
 import { validerEmail, validerMotDePasse } from "../utils/validation";
 
@@ -137,7 +137,7 @@ function FormCodeInscription({ email, modeDev: modeDevInitial, aller, onCree }) 
   );
 }
 
-/* ---------------------------------------------------------------- mot de passe oublié */
+/* ---------------------------------------------------------------- mot de passe oublié : étape 1, adresse e-mail */
 function FormOubli({ aller, onCodeEnvoye }) {
   const [email, setEmail] = useState("");
   const [erreur, setErreur] = useState(null);
@@ -153,17 +153,18 @@ function FormOubli({ aller, onCodeEnvoye }) {
     <form onSubmit={soumettre} noValidate>
       <button type="button" className="retour" onClick={() => aller("connexion")}>‹ Retour à la connexion</button>
       <h2>Mot de passe oublié</h2><p>Saisis l'adresse e-mail de ton compte : nous t'enverrons un code de vérification.</p>
-      <Champ id="email-oubli" libelle="Adresse e-mail"><input id="email-oubli" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus autoComplete="email" /></Champ>
-      {erreur && <div className="alerte alerte-erreur">{erreur}</div>}
+      <Champ id="email-oubli" libelle="Adresse e-mail" erreur={erreur}>
+        <input id="email-oubli" type="email" className={`input ${erreur ? "invalide" : ""}`} value={email}
+               onChange={(e) => { setEmail(e.target.value); setErreur(null); }} autoFocus autoComplete="email" />
+      </Champ>
       <button className="btn" type="submit" disabled={envoi} style={{ width: "100%", justifyContent: "center" }}>{envoi ? "Envoi…" : "Envoyer le code"}</button>
     </form>
   );
 }
 
-function FormReinit({ email, modeDev: modeDevInitial, aller, onTermine }) {
+/* ---------------------------------------------------------------- mot de passe oublié : étape 2, saisie du code */
+function FormCodeReinit({ email, modeDev: modeDevInitial, aller, onCodeValide }) {
   const [code, setCode] = useState("");
-  const [mdp, setMdp] = useState("");
-  const [confirmation, setConfirmation] = useState("");
   const [modeDev, setModeDev] = useState(modeDevInitial);
   const [erreur, setErreur] = useState(null);
   const [envoi, setEnvoi] = useState(false);
@@ -172,10 +173,9 @@ function FormReinit({ email, modeDev: modeDevInitial, aller, onTermine }) {
   const soumettre = async (e) => {
     e.preventDefault(); setErreur(null);
     if (code.length !== 6) { setErreur("Saisis le code à 6 chiffres reçu par e-mail."); return; }
-    const mp = validerMotDePasse(mdp); if (mp) { setErreur("Nouveau mot de passe : " + mp); return; }
-    if (mdp !== confirmation) { setErreur("La confirmation ne correspond pas au nouveau mot de passe."); return; }
     setEnvoi(true);
-    try { await reinitialiserMotDePasse(email, code, mdp); onTermine(); } catch (ex) { setErreur(formaterErreur(ex)); setEnvoi(false); }
+    try { await verifierCodeReinitialisation(email, code); onCodeValide(code); }
+    catch (ex) { setErreur(formaterErreur(ex)); setEnvoi(false); }
   };
   const renvoyer = async () => {
     setErreur(null);
@@ -185,20 +185,45 @@ function FormReinit({ email, modeDev: modeDevInitial, aller, onTermine }) {
   return (
     <form onSubmit={soumettre} noValidate>
       <button type="button" className="retour" onClick={() => aller("oubli")}>‹ Changer d'adresse</button>
-      <h2>Nouveau mot de passe</h2>
+      <h2>Vérifie ton adresse e-mail</h2>
       <Message modeDev={modeDev} email={email} />
-      <Champ id="code-reinit" libelle="Code de vérification">
-        <input id="code-reinit" className="input code-input" inputMode="numeric" maxLength={6} value={code} autoFocus autoComplete="one-time-code"
-               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="••••••" />
+      <Champ id="code-reinit" libelle="Code de vérification" erreur={erreur}>
+        <input id="code-reinit" className={`input code-input ${erreur ? "invalide" : ""}`} inputMode="numeric" maxLength={6} value={code} autoFocus autoComplete="one-time-code"
+               onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setErreur(null); }} placeholder="••••••" />
+        <div className="indication">Le code est valable 10 minutes.</div>
       </Champ>
+      <button className="btn" type="submit" disabled={envoi} style={{ width: "100%", justifyContent: "center" }}>{envoi ? "Vérification…" : "Valider le code"}</button>
+      <div className="login-pied"><button type="button" className="lien-bouton" disabled={reste > 0} onClick={renvoyer}>{reste > 0 ? `Renvoyer le code (${reste} s)` : "Renvoyer le code"}</button></div>
+    </form>
+  );
+}
+
+/* ---------------------------------------------------------------- mot de passe oublié : étape 3, nouveau mot de passe (code correct) */
+function FormNouveauMdp({ email, code, aller, onTermine }) {
+  const [mdp, setMdp] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+
+  const soumettre = async (e) => {
+    e.preventDefault(); setErreur(null);
+    const mp = validerMotDePasse(mdp); if (mp) { setErreur(mp); return; }
+    if (mdp !== confirmation) { setErreur("La confirmation ne correspond pas au nouveau mot de passe."); return; }
+    setEnvoi(true);
+    try { await reinitialiserMotDePasse(email, code, mdp); onTermine(); } catch (ex) { setErreur(formaterErreur(ex)); setEnvoi(false); }
+  };
+
+  return (
+    <form onSubmit={soumettre} noValidate>
+      <button type="button" className="retour" onClick={() => aller("reinit-code")}>‹ Saisir un autre code</button>
+      <h2>Nouveau mot de passe</h2>
       <Champ id="reinit-mdp" libelle="Nouveau mot de passe">
-        <ChampMotDePasse id="reinit-mdp" valeur={mdp} onChange={setMdp} autoComplete="new-password" />
+        <ChampMotDePasse id="reinit-mdp" valeur={mdp} onChange={setMdp} autoComplete="new-password" invalide={!!erreur} />
         <div className="indication">8 caractères minimum, avec au moins une lettre et un chiffre.</div>
       </Champ>
       <Champ id="reinit-conf" libelle="Confirmer le nouveau mot de passe"><ChampMotDePasse id="reinit-conf" valeur={confirmation} onChange={setConfirmation} autoComplete="new-password" /></Champ>
       {erreur && <div className="alerte alerte-erreur">{erreur}</div>}
       <button className="btn" type="submit" disabled={envoi} style={{ width: "100%", justifyContent: "center" }}>{envoi ? "Enregistrement…" : "Changer le mot de passe"}</button>
-      <div className="login-pied"><button type="button" className="lien-bouton" disabled={reste > 0} onClick={renvoyer}>{reste > 0 ? `Renvoyer le code (${reste} s)` : "Renvoyer le code"}</button></div>
     </form>
   );
 }
@@ -210,6 +235,7 @@ export default function Login() {
   const [loginInitial, setLoginInitial] = useState("");
   const [email, setEmail] = useState("");
   const [modeDev, setModeDev] = useState(false);
+  const [codeValide, setCodeValide] = useState("");
 
   const aller = (e) => { setEcran(e); if (e !== "connexion") setInfo(null); };
   const codeEnvoye = (suite) => (adresse, dev) => { setEmail(adresse); setModeDev(dev); setEcran(suite); };
@@ -222,8 +248,10 @@ export default function Login() {
         {ecran === "inscription" && <FormInscription aller={aller} onCodeEnvoye={codeEnvoye("code-inscription")} />}
         {ecran === "code-inscription" && <FormCodeInscription email={email} modeDev={modeDev} aller={aller}
           onCree={(u) => { setLoginInitial(u.login); setInfo("Compte créé avec succès. Connecte-toi avec ton identifiant et ton mot de passe."); setEcran("connexion"); }} />}
-        {ecran === "oubli" && <FormOubli aller={aller} onCodeEnvoye={codeEnvoye("reinit")} />}
-        {ecran === "reinit" && <FormReinit email={email} modeDev={modeDev} aller={aller}
+        {ecran === "oubli" && <FormOubli aller={aller} onCodeEnvoye={codeEnvoye("reinit-code")} />}
+        {ecran === "reinit-code" && <FormCodeReinit email={email} modeDev={modeDev} aller={aller}
+          onCodeValide={(c) => { setCodeValide(c); setEcran("reinit"); }} />}
+        {ecran === "reinit" && <FormNouveauMdp email={email} code={codeValide} aller={aller}
           onTermine={() => { setInfo("Mot de passe modifié. Tu peux maintenant te connecter."); setEcran("connexion"); }} />}
       </div>
     </div>

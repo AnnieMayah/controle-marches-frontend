@@ -13,3 +13,5 @@ export const renvoyerCode = (email, objet) => api.post("/auth/code/renvoyer", { 
 export const motDePasseOublie = (email) => api.post("/auth/mot-de-passe-oublie", { email }).then((r) => r.data);
 export const reinitialiserMotDePasse = (email, code, nouveau) => api.post("/auth/reinitialiser", { email, code, nouveau }).then((r) => r.data);
 export const changerRole = (id, role, id_demandeur) => api.put(`/auth/utilisateurs/${id}/role`, { role, id_demandeur }).then((r) => r.data);
+export const verifierCodeReinitialisation = (email, code) =>
+  api.post("/auth/reinitialiser/verifier", { email, code }).then((r) => r.data);
